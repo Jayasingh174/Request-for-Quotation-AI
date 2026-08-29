@@ -1,0 +1,48 @@
+# ==========================================
+# 🌐 CORE WEB FRAMEWORK
+# ==========================================
+fastapi
+uvicorn[standard]
+python-multipart    # CRITICAL: Required for file uploads
+pydantic
+jinja2              # Used if you are serving HTML templates directly
+
+# ==========================================
+# 🧠 AI, RAG & VECTOR DATABASE
+# ==========================================
+openai              # For AsyncOpenAI (Embeddings & LLM)
+faiss-cpu           # The Vector Store (Use faiss-gpu if using an NVIDIA card)
+rank_bm25           # For keyword/hybrid search
+numpy               # Required for vector math and FAISS arrays
+
+# ==========================================
+# 📊 DATA PROCESSING & EXCEL (BOQ)
+# ==========================================
+pandas              # For row-by-row BOQ extraction
+openpyxl            # CRITICAL: The engine Pandas needs to read .xlsx files
+
+# ==========================================
+# 📄 DOCUMENT PARSERS
+# ==========================================
+PyMuPDF             # Standard for fast PDF extraction
+pdfplumber          # Great for precise PDF text/layout extraction
+PyPDF2              # Utility for PDF manipulation
+python-docx         # Standard for Word documents
+ezdxf               # Standard for parsing DXF/DWG CAD files
+
+# ==========================================
+# 🧮 TABLE EXTRACTION (Optional but powerful)
+# ==========================================
+camelot-py[cv]      # Advanced PDF table extraction
+opencv-python       # Dependency for camelot
+ghostscript         # Dependency for camelot (Requires Ghostscript OS install!)
+
+# ==========================================
+# 🤖 LOCAL NLP / EMBEDDINGS (OPTIONAL)
+# ==========================================
+# Note: Comment these out to save ~2GB of space if you are ONLY using 
+# OpenAI for embeddings. Keep them if you plan to run local HuggingFace models.
+sentence-transformers
+torch
+transformers
+accelerate
