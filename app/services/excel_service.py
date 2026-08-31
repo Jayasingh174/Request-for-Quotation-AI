@@ -39,22 +39,22 @@ def extract_boq_data(file_path: str) -> list:
         df = df.fillna("")
 
         # 4. Convert to Semantic Text instead of raw dicts
+        # 4. Convert to structured rows instead of plain strings
         for index, row in df.iterrows():
             row_dict = row.to_dict()
-            
-            # Skip rows where the main description is empty
-            # (You might need to adjust 'Description' to match your actual BOQ column names)
+        
             desc_keys = [k for k in row_dict.keys() if 'desc' in k.lower() or 'item' in k.lower()]
             if desc_keys and row_dict[desc_keys[0]] == "":
                 continue
-
-            # Create a human-readable string for the embedder
+        
+            # Build the human-readable string (unchanged, still useful for logs/RAG text)
             semantic_string = f"[Sheet: {sheet_name}] "
             row_details = []
             for col_name, value in row_dict.items():
                 if str(value).strip() != "" and col_name != "Unknown_Column":
                     row_details.append(f"{col_name}: {value}")
-            
+            semantic_string += " | ".join(row_details)
+
             semantic_string += " | ".join(row_details)
             all_semantic_rows.append(semantic_string)
 
