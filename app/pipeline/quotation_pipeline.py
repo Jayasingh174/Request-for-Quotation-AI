@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 def safe_int(val, default=1):
     try:
-        # Strip out non-numeric characters before converting (e.g., "25 Nos" -> "25")
         num_str = re.sub(r"[^\d.]", "", str(val))
         return int(float(num_str)) if num_str else default
     except Exception:
@@ -85,13 +84,8 @@ async def process_rfq_bundle(project_name: str, file_paths: List[str]) -> Dict[s
             ext = path.suffix.lower().lstrip(".")
             entities: List[Dict[str, Any]] = []
 
-            # --------------------------------------------------
-            # 🔥 STEP 1: EMBED EVERYTHING FIRST
-            # By routing EVERYTHING through process_rfq, we guarantee 
-            # Excel files get chunked and saved to the Chatbot's Vector Store.
-            # --------------------------------------------------
             result = await process_rfq(str(path))
-            
+
             if not result or result.get("status") == "error":
                 raise ValueError(result.get("message", "Vector/Pipeline extraction error"))
 
@@ -103,25 +97,24 @@ async def process_rfq_bundle(project_name: str, file_paths: List[str]) -> Dict[s
             }
 
             # --------------------------------------------------
-            # 🔥 STEP 2: EXTRACT ENTITIES FOR CONFLICT ENGINE
+            # STEP 2: EXTRACT ENTITIES FOR CONFLICT ENGINE
             # --------------------------------------------------
-            
+
             # EXCEL HANDLING
             if ext in EXCEL_EXTS:
                 boq_data = extract_boq_data(str(path))
-                
-                # boq_data should be a list of rows
+
                 if isinstance(boq_data, list):
                     for row in boq_data:
-                        if not row: continue
-                        
+                        if not row:
+                            continue
+
                         item = get_fuzzy_val(row, ["Item", "Item No", "S.No", "ID"])
                         desc = get_fuzzy_val(row, ["Material", "Description", "Name"])
                         qty = get_fuzzy_val(row, ["Quantity", "Qty", "Amount"])
-                        
-                        # Use Description as fallback if Item ID is missing
+
                         entity_name = item if item else desc
-                        
+
                         if entity_name and qty:
                             entities.append(normalize_entity(
                                 entity_name, qty, f"BOQ ({filename})", "BOQ", str(path)
@@ -130,28 +123,35 @@ async def process_rfq_bundle(project_name: str, file_paths: List[str]) -> Dict[s
 
             # PDF / CAD HANDLING
             else:
-                # CAD entities
-                for entity in result.get("cad_entities", []) or []:
-                    if isinstance(entity, dict):
+                # 🔧 FIX: cad_entities is a dict {"entities": [...], "blocks": [...]},
+                # not a flat list. Unwrap it, and only pull INSERT blocks — those are
+                # the only DXF entity type with a meaningful "part reference" name.
+                # Raw LINE/CIRCLE/ARC geometry has no item/quantity semantics, so we
+                # deliberately don't fabricate one for them.
+                cad_data = result.get("cad_entities") or {}
+                cad_blocks = cad_data.get("blocks", []) if isinstance(cad_data, dict) else []
+
+                for block in cad_blocks:
+                    if isinstance(block, dict) and block.get("block_name"):
                         entities.append(normalize_entity(
-                            entity.get("item", "Unknown"), entity.get("qty"),
+                            block.get("block_name", "Unknown"), 1,  # DXF blocks don't carry a qty; count as 1 instance
                             f"CAD ({filename})", "CAD", str(path)
                         ))
 
-                # BOM entities
+                # BOM entities — 🔧 FIX: bom_extractor.extract_bom() returns
+                # {"part": ..., "material": ..., "qty": ...}, not "item"/"quantity"
                 for item in result.get("bom", []) or []:
                     if isinstance(item, dict):
                         entities.append(normalize_entity(
-                            item.get("item", "Unknown"), item.get("quantity"),
+                            item.get("part", "Unknown"), item.get("qty"),
                             f"Spec BOM ({filename})", "Spec BOM", str(path)
                         ))
-                
+
                 file_result["status"] = "processed as unstructured"
 
-            # Store the extracted entities
             if not entities:
                 file_result["status"] += " (no entities found)"
-            
+
             file_result["entities"] = entities
             processed_results.append(file_result)
             all_normalized_entities.extend(entities)
@@ -165,9 +165,6 @@ async def process_rfq_bundle(project_name: str, file_paths: List[str]) -> Dict[s
                 "entities": [],
             })
 
-    # =====================
-    # CLEAN, GROUP & DETECT
-    # =====================
     all_normalized_entities = deduplicate_entities(all_normalized_entities)
     logger.info("Checking %d items for conflicts...", len(all_normalized_entities))
 
@@ -177,9 +174,6 @@ async def process_rfq_bundle(project_name: str, file_paths: List[str]) -> Dict[s
         logger.exception("Conflict detection failed")
         conflict_report = {"error": str(e)}
 
-    # =====================
-    # SUMMARY
-    # =====================
     success_count = sum(1 for f in processed_results if "processed" in f["status"])
     error_count = sum(1 for f in processed_results if f["status"] == "error")
 
