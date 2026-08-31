@@ -6,15 +6,16 @@ logger = logging.getLogger(__name__)
 def extract_boq_data(file_path: str) -> list:
     """
     Reads an Excel BOQ, dynamically finds the header row, and returns 
-    a list of semantically formatted text chunks for better RAG retrieval.
+    a list of row dictionaries (with an added semantic text summary) 
+    for both structured field access and RAG retrieval.
     """
     try:
-        sheets = pd.read_excel(file_path, sheet_name=None, header=None) # Don't assume row 0 is header
+        sheets = pd.read_excel(file_path, sheet_name=None, header=None)  # Don't assume row 0 is header
     except Exception as e:
         logger.exception(f"Failed to read Excel file {file_path}")
         raise ValueError(f"Failed to read Excel file: {e}")
 
-    all_semantic_rows = []
+    all_rows = []
 
     for sheet_name, df in sheets.items():
         df = df.dropna(how='all').dropna(axis=1, how='all')
@@ -22,32 +23,30 @@ def extract_boq_data(file_path: str) -> list:
             continue
 
         # 1. Find the real header row dynamically
-        # Look for a row containing typical BOQ keywords
         header_row_idx = 0
         for idx, row in df.iterrows():
             row_text = ' '.join([str(val).lower() for val in row.values])
             if any(keyword in row_text for keyword in ['description', 'item', 'qty', 'quantity', 'unit']):
                 header_row_idx = idx
                 break
-        
+
         # 2. Reassign headers and drop the junk rows above it
         df.columns = df.iloc[header_row_idx].fillna("Unknown_Column").astype(str)
-        df = df.iloc[header_row_idx + 1:] # Keep data below the header
-        
+        df = df.iloc[header_row_idx + 1:]  # Keep data below the header
+
         # 3. Clean up the data
-        df = df.dropna(how='all') # Drop rows that are now empty
+        df = df.dropna(how='all')
         df = df.fillna("")
 
-        # 4. Convert to Semantic Text instead of raw dicts
-        # 4. Convert to structured rows instead of plain strings
+        # 4. Convert to structured row dicts (with semantic text attached)
         for index, row in df.iterrows():
             row_dict = row.to_dict()
-        
+
             desc_keys = [k for k in row_dict.keys() if 'desc' in k.lower() or 'item' in k.lower()]
             if desc_keys and row_dict[desc_keys[0]] == "":
                 continue
-        
-            # Build the human-readable string (unchanged, still useful for logs/RAG text)
+
+            # Build the human-readable string (still useful for logs/RAG text)
             semantic_string = f"[Sheet: {sheet_name}] "
             row_details = []
             for col_name, value in row_dict.items():
@@ -55,9 +54,11 @@ def extract_boq_data(file_path: str) -> list:
                     row_details.append(f"{col_name}: {value}")
             semantic_string += " | ".join(row_details)
 
-            semantic_string += " | ".join(row_details)
-            all_semantic_rows.append(semantic_string)
+            # 🔧 FIX: attach metadata and append the DICT, not the string
+            row_dict["_sheet"] = sheet_name
+            row_dict["_semantic_text"] = semantic_string
+            all_rows.append(row_dict)
 
-    logger.info(f"📊 Extracted {len(all_semantic_rows)} semantic chunks from Excel.")
-    
-    return all_semantic_rows
+    logger.info(f"📊 Extracted {len(all_rows)} structured BOQ rows from Excel.")
+
+    return all_rows
