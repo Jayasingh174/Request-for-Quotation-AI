@@ -45,13 +45,6 @@ def deduplicate_entities(entities):
             unique.append(e)
     return unique
 
-def group_by_item(entities):
-    grouped = defaultdict(list)
-    for e in entities:
-        if isinstance(e, dict) and "item" in e:
-            grouped[e["item"]].append(e)
-    return grouped
-
 # --- HELPER: FUZZY MATCHER (Imported or redefined for safety) ---
 def get_fuzzy_val(row_dict: dict, possible_keys: list) -> str:
     lower_row = {str(k).lower().strip(): v for k, v in row_dict.items() if k}
@@ -123,23 +116,16 @@ async def process_rfq_bundle(project_name: str, file_paths: List[str]) -> Dict[s
 
             # PDF / CAD HANDLING
             else:
-                # 🔧 FIX: cad_entities is a dict {"entities": [...], "blocks": [...]},
-                # not a flat list. Unwrap it, and only pull INSERT blocks — those are
-                # the only DXF entity type with a meaningful "part reference" name.
-                # Raw LINE/CIRCLE/ARC geometry has no item/quantity semantics, so we
-                # deliberately don't fabricate one for them.
                 cad_data = result.get("cad_entities") or {}
                 cad_blocks = cad_data.get("blocks", []) if isinstance(cad_data, dict) else []
 
                 for block in cad_blocks:
                     if isinstance(block, dict) and block.get("block_name"):
                         entities.append(normalize_entity(
-                            block.get("block_name", "Unknown"), 1,  # DXF blocks don't carry a qty; count as 1 instance
+                            block.get("block_name", "Unknown"), 1,
                             f"CAD ({filename})", "CAD", str(path)
                         ))
 
-                # BOM entities — 🔧 FIX: bom_extractor.extract_bom() returns
-                # {"part": ..., "material": ..., "qty": ...}, not "item"/"quantity"
                 for item in result.get("bom", []) or []:
                     if isinstance(item, dict):
                         entities.append(normalize_entity(
