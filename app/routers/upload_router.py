@@ -1,20 +1,17 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from app.models.rfq_model import RFQRequest, RFQResponse
-from typing import List
-import os
+  from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+  from app.models.rfq_model import RFQRequest, RFQResponse
+  from typing import List
+  import os
+  # --- Import your existing services ---
+  from app.brain.document_upload import add_document
+  # --- Import your NEW Phase 3 Pipeline ---
+  from app.pipeline.rfq_pipeline import process_rfq
+  from app.pipeline.quotation_pipeline import process_rfq_bundle # Assuming this is the correct path
++ from app.config import UPLOAD_DIR  # 🔧 FIX: use config's UPLOAD_DIR instead of a local hardcoded copy
 
-# --- Import your existing services ---
-from app.brain.document_upload import add_document
-
-# --- Import your NEW Phase 3 Pipeline ---
-from app.pipeline.rfq_pipeline import process_rfq
-from app.pipeline.quotation_pipeline import process_rfq_bundle # Assuming this is the correct path
-
-router = APIRouter(prefix="/upload")
-
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
+  router = APIRouter(prefix="/upload")
+- UPLOAD_DIR = "uploads"
+  os.makedirs(UPLOAD_DIR, exist_ok=True)
 # ---------------------------------------------------------
 # 1. Single File Process
 # ---------------------------------------------------------
