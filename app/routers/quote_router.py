@@ -4,11 +4,12 @@ import uuid
 
 # --- Services ---
 from app.pipeline.quotation_pipeline import process_rfq_bundle
+from app.config import UPLOAD_DIR  # 🔧 FIX: use config's UPLOAD_DIR instead of a local hardcoded copy
 
 router = APIRouter(prefix="/quote", tags=["Quote Generation"])
 
-UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 @router.post("/excel", summary="Upload and Generate Quote from Excel")
 async def generate_quote_from_excel(
@@ -23,14 +24,12 @@ async def generate_quote_from_excel(
         safe_filename = f"{uuid.uuid4()}_{os.path.basename(file.filename)}"
         file_path = os.path.join(UPLOAD_DIR, safe_filename)
 
-        # ✅ FIX: Async-safe file saving!
-        # This reads the file into memory without blocking the server, 
-        # then writes it safely to the disk.
+        # ✅ Async-safe file saving
         content = await file.read()
         with open(file_path, "wb") as buffer:
             buffer.write(content)
 
-        # ✅ Await async pipeline (You nailed this part!)
+        # ✅ Await async pipeline
         result = await process_rfq_bundle(
             project_name=f"Excel RFQ: {safe_filename}",
             file_paths=[file_path]
@@ -44,7 +43,6 @@ async def generate_quote_from_excel(
 
     except HTTPException:
         raise
-
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -52,5 +50,4 @@ async def generate_quote_from_excel(
         )
 
     finally:
-        # ✅ Safely close the FastAPI UploadFile to free up memory
         await file.close()
