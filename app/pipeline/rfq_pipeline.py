@@ -5,10 +5,11 @@ from app.brain.document_service import process_document
 from app.extraction.bom_extractor import extract_bom
 from app.extraction.spec_extractor import extract_specs
 from app.extraction.table_extractor import extract_tables
-from app.services.cad_service import extract_dwg
+from app.services.cad_service import extract_dwg, parse_dxf, summarize_dxf  # 🔧 FIX: added parse_dxf, summarize_dxf
 from app.config import UPLOAD_DIR
 
 logger = logging.getLogger(__name__)
+
 
 async def process_rfq(file_path: str):
     """
@@ -18,7 +19,7 @@ async def process_rfq(file_path: str):
         # --------------------------------------------------
         # 1️⃣ Extract text & Store Vectors
         # --------------------------------------------------
-        # 🔥 Note: process_document() now handles extraction, smart chunking 
+        # 🔥 Note: process_document() now handles extraction, smart chunking
         # (like the Excel BOQ rows), embedding, and saving to VectorService!
         text = await process_document(file_path)
 
@@ -51,9 +52,16 @@ async def process_rfq(file_path: str):
         # --------------------------------------------------
         if file_path.lower().endswith(".dwg"):
             cad_result = extract_dwg(file_path, output_dir=UPLOAD_DIR)
-
             result["cad_summary"] = cad_result.get("summary")
             result["cad_entities"] = cad_result.get("parsed_entities", [])
+
+        elif file_path.lower().endswith(".dxf"):
+            # 🔧 FIX: .dxf files skip DWG→DXF conversion (already DXF) but
+            # still need parsing so CAD entities reach the conflict engine,
+            # same as .dwg files do.
+            parsed_data = parse_dxf(file_path)
+            result["cad_summary"] = summarize_dxf(parsed_data)
+            result["cad_entities"] = parsed_data
 
         return result
 
