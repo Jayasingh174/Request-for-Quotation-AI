@@ -13,14 +13,31 @@ const progressBar = document.getElementById("progress");
 const documentsContainer = document.getElementById("documents");
 
 /* =========================================
+   STATUS TOAST (replaces alert() popups)
+   ========================================= */
+function showStatus(message, tone = "error") {
+    let toast = document.getElementById("statusToast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "statusToast";
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.className = `status-toast status-toast--${tone} status-toast--visible`;
+
+    clearTimeout(showStatus._timer);
+    showStatus._timer = setTimeout(() => {
+        toast.classList.remove("status-toast--visible");
+    }, 4000);
+}
+
+/* =========================================
    FILE MANAGEMENT (PHASE 3: BUNDLE UPLOAD)
    ========================================= */
 if (dropZone && fileInput) {
-
     dropZone.addEventListener("click", () => fileInput.click());
-
 }
-fileInput.style.display = "none"; 
+fileInput.style.display = "none";
 
 fileInput.addEventListener("change", async () => {
     const files = fileInput.files;
@@ -43,23 +60,21 @@ dropZone.addEventListener("drop", async (e) => {
     const files = e.dataTransfer.files;
     if (files.length > 0) await handleFiles(files);
 });
-async function handleFiles(files) {
 
+async function handleFiles(files) {
     fileNameDisplay.textContent = `Analyzing bundle of ${files.length} file(s)...`;
     progressBar.style.width = "50%";
 
     try {
-
         const responseData = await uploadBundle(files);
 
-        fileNameDisplay.textContent = "Analysis complete!";
+        fileNameDisplay.textContent = "Analysis complete.";
         progressBar.style.width = "100%";
 
         const aiDiv = createMessageElement("ai system");
-
         aiDiv.innerHTML = `
-        <b>📂 RFQ Bundle Uploaded</b><br>
-        ${[...files].map(f => "• " + f.name).join("<br>")}
+            <strong>RFQ bundle uploaded</strong><br>
+            ${[...files].map(f => `<span class="doc-ref">${f.name}</span>`).join("<br>")}
         `;
 
         if (responseData && responseData.engineering_analysis) {
@@ -67,11 +82,9 @@ async function handleFiles(files) {
         }
 
     } catch (error) {
-
         console.error("Bundle upload failed:", error);
-        alert("Failed to process the RFQ bundle.");
+        showStatus("Failed to process the RFQ bundle.", "error");
         progressBar.style.width = "0%";
-
     }
 
     setTimeout(() => {
@@ -86,7 +99,7 @@ function uploadBundle(files) {
     return new Promise((resolve, reject) => {
         const formData = new FormData();
         formData.append("project_name", "RFQ Analysis " + new Date().toLocaleTimeString());
-        
+
         for (let i = 0; i < files.length; i++) {
             formData.append("files", files[i]);
         }
@@ -113,22 +126,22 @@ function uploadBundle(files) {
 
 function displayConflictReport(analysis) {
     const aiDiv = createMessageElement("ai system-alert");
-    
-    let html = `<h3>⚠️ Engineering Conflict Report</h3>`;
-    html += `<p>Cross-referenced ${analysis.total_entities_checked} items.</p>`;
+
+    let html = `<h3>Engineering conflict report</h3>`;
+    html += `<p>Cross-referenced ${analysis.total_entities_checked} item(s).</p>`;
 
     if (analysis.conflicts_found > 0) {
-        html += `<p style="color: #ff4d4d;">❌ Found ${analysis.conflicts_found} conflict(s).</p>`;
-        html += `<button id="downloadCsvBtn" class="action-btn">📥 Download CSV Report</button>`;
-        
+        html += `<p class="report-status report-status--conflict">${analysis.conflicts_found} conflict(s) found.</p>`;
+        html += `<button id="downloadCsvBtn" class="action-btn">Download CSV report</button>`;
+
         html += `<div class="table-wrapper">
                     <table>
                         <thead>
-                            <tr><th>Entity</th><th>Source Quantities</th></tr>
+                            <tr><th>Entity</th><th>Source quantities</th></tr>
                         </thead>
                         <tbody>`;
-        
-        if(analysis.conflict_details) {
+
+        if (analysis.conflict_details) {
             analysis.conflict_details.forEach(item => {
                 let qtyStr = Object.entries(item.quantities)
                                    .map(([src, qty]) => `<b>${src}:</b> ${qty}`)
@@ -138,10 +151,10 @@ function displayConflictReport(analysis) {
         }
         html += `</tbody></table></div>`;
     } else {
-        html += `<p style="color: #28a745;">✅ No major conflicts detected between documents.</p>`;
+        html += `<p class="report-status report-status--match">No conflicts detected between documents.</p>`;
     }
 
-    aiDiv.innerHTML = html; 
+    aiDiv.innerHTML = html;
     chat.scrollTop = chat.scrollHeight;
 
     const downloadBtn = document.getElementById("downloadCsvBtn");
@@ -157,6 +170,11 @@ async function downloadCSV(analysisData) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(analysisData)
         });
+
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`);
+        }
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -167,7 +185,7 @@ async function downloadCSV(analysisData) {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
     } catch (error) {
-        alert("Failed to download the report.");
+        showStatus("Failed to download the report.", "error");
     }
 }
 
@@ -194,7 +212,7 @@ async function askAI() {
     // 2. Display user message
     createMessageElement("user").textContent = question;
     questionInput.value = "";
-    
+
     const aiDiv = createMessageElement("ai thinking");
     aiDiv.textContent = "Thinking...";
 
@@ -206,18 +224,14 @@ async function askAI() {
         });
 
         if (!response.ok) throw new Error("Server error");
-        // Inside your askAI() function's try block:
+
         const data = await response.json();
         aiDiv.classList.remove("thinking");
 
-        // Format the answer with sources
-        
         aiDiv.innerHTML = `
             ${data.answer}
-            ${data.sources && data.sources.length > 0 
-                ? `<div class="sources" style="margin-top:10px; font-size:0.8em; color:gray;">
-                    <strong>Sources:</strong> ${data.sources.join(", ")}
-                </div>` 
+            ${data.sources && data.sources.length > 0
+                ? `<div class="sources"><strong>Sources:</strong> ${data.sources.join(", ")}</div>`
                 : ""
             }
         `;
@@ -226,7 +240,7 @@ async function askAI() {
         console.error("Chat Error:", error);
         aiDiv.classList.remove("thinking");
         aiDiv.classList.add("error");
-        aiDiv.textContent = "⚠️ Error: Could not connect to service.";
+        aiDiv.textContent = "Error: could not connect to the service.";
     } finally {
         // 3. Unlock UI (Crucial)
         questionInput.disabled = false;
@@ -243,6 +257,8 @@ async function askAI() {
 async function loadDocuments() {
     try {
         const response = await fetch("/documents");
+        if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+
         const data = await response.json();
         documentsContainer.innerHTML = "";
 
@@ -255,10 +271,11 @@ async function loadDocuments() {
             const div = document.createElement("div");
             div.className = "document-item";
             div.innerHTML = `<span class="doc-name">${doc}</span>`;
-            
+
             const delBtn = document.createElement("button");
             delBtn.className = "delete-btn";
-            delBtn.innerHTML = "🗑️";
+            delBtn.setAttribute("aria-label", `Delete ${doc}`);
+            delBtn.innerHTML = "&times;";
             delBtn.onclick = () => deleteDocument(doc);
 
             div.appendChild(delBtn);
@@ -270,12 +287,20 @@ async function loadDocuments() {
 }
 
 async function deleteDocument(filename) {
-    if (!confirm(`Are you sure you want to delete "${filename}"?`)) return;
+    if (!confirm(`Delete "${filename}"?`)) return;
+
     try {
-        await fetch(`/delete/${filename}`, { method: "DELETE" });
+        // 🔧 FIX: matches DELETE /documents/{filename} in document_router.py
+        // (was /delete/{filename}, which has no matching backend route)
+        const response = await fetch(`/documents/${filename}`, { method: "DELETE" });
+
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`);
+        }
+
         loadDocuments();
     } catch (error) {
-        alert("Error deleting document.");
+        showStatus(`Could not delete "${filename}".`, "error");
     }
 }
 
