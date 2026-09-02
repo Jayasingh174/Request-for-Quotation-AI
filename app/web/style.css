@@ -444,6 +444,56 @@ tr:last-child td { border-bottom: none; }
 #sendBtn:hover { background: var(--blueprint-deep); }
 
 /* =========================================
+   CONFLICT REPORT STATUS LINES
+   (replaces inline style="color:..." in app.js)
+   ========================================= */
+.report-status {
+    font-size: 0.88rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.report-status--conflict { color: var(--flag-conflict); }
+.report-status--match { color: var(--flag-match); }
+
+.doc-ref {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* =========================================
+   STATUS TOAST
+   (replaces alert() popups — quiet, non-blocking)
+   ========================================= */
+.status-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    background: var(--ink);
+    color: var(--text-on-ink);
+    padding: 11px 20px;
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--flag-conflict);
+    font-size: 0.86rem;
+    box-shadow: 0 8px 24px rgba(27, 32, 40, 0.22);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 100;
+    max-width: 80vw;
+}
+
+.status-toast--visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.status-toast--error { border-left-color: var(--flag-conflict); }
+.status-toast--success { border-left-color: var(--flag-match); }
+
+/* =========================================
    RESPONSIVE
    ========================================= */
 @media (max-width: 860px) {
