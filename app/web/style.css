@@ -1,29 +1,62 @@
 /* =========================================
-   CORE STYLES
+   RFQ AI SYSTEM — Engineering Register / Log
+   Design language: technical drafting instrument.
+   Paper + ink + blueprint accent. Two type families:
+   IBM Plex Sans (UI/body), IBM Plex Mono (data — filenames,
+   quantities, source refs, table figures).
    ========================================= */
+
 :root {
-    --primary-color: #007bff;
-    --bg-color: #f8f9fa;
-    --sidebar-bg: #ffffff;
-    --border-color: #dee2e6;
-    --text-main: #333;
-    --text-muted: #6c757d;
-    --ai-bubble: #e9ecef;
-    --user-bubble: #007bff;
+    --ink: #1B2028;
+    --ink-soft: #2B323E;
+    --paper: #EEEBE2;
+    --paper-raised: #F7F5EF;
+    --line: #C7C0AF;
+    --line-soft: #DAD4C4;
+    --text-main: #23262B;
+    --text-muted: #6B6659;
+    --text-on-ink: #E9E6DC;
+    --text-on-ink-muted: #9B9484;
+    --blueprint: #2A5C8A;
+    --blueprint-deep: #1E4566;
+    --flag-conflict: #B54708;
+    --flag-conflict-bg: #F5E4D5;
+    --flag-match: #2F6844;
+    --flag-match-bg: #E1EAE3;
+    --radius-sm: 3px;
+    --radius-md: 6px;
 }
 
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+html {
+    -webkit-font-smoothing: antialiased;
 }
 
 body {
-    background-color: var(--bg-color);
+    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+    background-color: var(--paper);
     color: var(--text-main);
     height: 100vh;
     display: flex;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+:focus-visible {
+    outline: 2px solid var(--blueprint);
+    outline-offset: 2px;
 }
 
 .app-container {
@@ -33,455 +66,397 @@ body {
 }
 
 /* =========================================
-   SIDEBAR & UPLOAD ZONE
+   SIDEBAR — Document Register
    ========================================= */
 .sidebar {
     width: 320px;
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--border-color);
-    padding: 20px;
+    flex-shrink: 0;
+    background: var(--ink);
+    color: var(--text-on-ink);
+    padding: 28px 22px;
     display: flex;
     flex-direction: column;
+    gap: 26px;
+    overflow-y: auto;
 }
 
 .sidebar h2 {
-    font-size: 1.2rem;
-    margin-bottom: 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--text-on-ink);
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(233, 230, 220, 0.14);
 }
 
+/* Drop zone — corner-bracket "crop mark" treatment instead of a dashed box */
 .drop-zone {
-    border: 2px dashed var(--border-color);
-    border-radius: 12px;
-    padding: 30px 10px;
+    position: relative;
+    padding: 26px 14px;
     text-align: center;
-    transition: all 0.3s ease;
     cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s ease;
 }
 
-.drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--primary-color);
-    background: #f0f7ff;
+.drop-zone::before,
+.drop-zone::after,
+.drop-zone-content::before,
+.drop-zone-content::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: var(--text-on-ink-muted);
+    transition: border-color 0.15s ease;
+}
+.drop-zone::before { top: 4px; left: 4px; border-top: 1.5px solid; border-left: 1.5px solid; }
+.drop-zone::after { top: 4px; right: 4px; border-top: 1.5px solid; border-right: 1.5px solid; }
+.drop-zone-content::before { content: ""; position: static; display: none; }
+
+.drop-zone:hover,
+.drop-zone.dragover {
+    background: rgba(42, 92, 138, 0.16);
+}
+
+.drop-zone:hover::before, .drop-zone:hover::after,
+.drop-zone.dragover::before, .drop-zone.dragover::after {
+    border-color: #6FA8D6;
 }
 
 .drop-zone-content h3 {
-    font-size: 1rem;
-    color: var(--primary-color);
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--text-on-ink);
+    margin-bottom: 4px;
+}
+
+.drop-zone-content p {
+    font-size: 0.82rem;
+    color: var(--text-on-ink-muted);
 }
 
 .upload-status {
-    margin-top: 15px;
+    margin-top: 14px;
+}
+
+#fileName {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.76rem;
+    color: var(--text-on-ink-muted);
+    margin-bottom: 6px;
+    min-height: 1em;
 }
 
 .progress-bar-container {
     width: 100%;
-    background: #eee;
-    height: 6px;
-    border-radius: 3px;
+    background: rgba(233, 230, 220, 0.12);
+    height: 3px;
+    border-radius: 0;
     overflow: hidden;
 }
 
 .progress-bar {
     width: 0%;
     height: 100%;
-    background: var(--primary-color);
+    background: var(--blueprint);
     transition: width 0.4s ease;
 }
 
+/* Document register list */
+.document-list-container h3 {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-on-ink-muted);
+    letter-spacing: 0.02em;
+    margin-bottom: 12px;
+}
+
+.documents {
+    counter-reset: doc-index;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
 .document-item {
+    counter-increment: doc-index;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px;
-    background: #fdfdfd;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    margin-bottom: 8px;
-    font-size: 0.9rem;
+    gap: 10px;
+    padding: 10px 4px 10px 0;
+    border-bottom: 1px solid rgba(233, 230, 220, 0.1);
+    font-size: 0.85rem;
+}
+
+.document-item::before {
+    content: counter(doc-index, decimal-leading-zero);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-on-ink-muted);
+    flex-shrink: 0;
+    width: 22px;
+}
+
+.doc-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-on-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
 }
 
 .delete-btn {
     background: transparent;
     border: none;
     cursor: pointer;
-    opacity: 0.6;
+    opacity: 0.45;
+    color: var(--text-on-ink);
+    font-size: 0.85rem;
+    line-height: 1;
+    padding: 4px;
+    transition: opacity 0.15s ease;
 }
 
 .delete-btn:hover { opacity: 1; }
 
+.empty-state, .error-state {
+    font-size: 0.82rem;
+    color: var(--text-on-ink-muted);
+    padding: 6px 0;
+}
+
+.error-state { color: #D98B6B; }
+
 /* =========================================
-   MAIN CHAT AREA
+   MAIN AREA — Engineering Log
    ========================================= */
 .main-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: white;
+    background: var(--paper-raised);
+    min-width: 0;
 }
 
 .chat-header {
-    padding: 15px 25px;
-    border-bottom: 1px solid var(--border-color);
-    font-weight: bold;
-    font-size: 1.1rem;
-}
-
-.chat-container {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.message {
-    max-width: 80%;
-    padding: 12px 18px;
-    border-radius: 18px;
-    line-height: 1.5;
-    font-size: 0.95rem;
-}
-
-.message.user {
-    align-self: flex-end;
-    background: var(--user-bubble);
-    color: white;
-    border-bottom-right-radius: 4px;
-}
-
-.message.ai {
-    align-self: flex-start;
-    background: var(--ai-bubble);
-    color: var(--text-main);
-    border-bottom-left-radius: 4px;
-}
-
-.message.system-alert {
-    align-self: center;
-    max-width: 95%;
-    background: #fff;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-/* =========================================
-   REQUIREMENT MATRIX TABLE
-   ========================================= */
-.table-wrapper {
-    margin-top: 15px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid var(--border-color);
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-}
-
-th, td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-}
-
-thead {
-    background-color: #f1f3f5;
-    font-weight: bold;
-}
-
-tr:last-child td { border-bottom: none; }
-
-.action-btn {
-    padding: 8px 16px;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background 0.2s;
-}
-
-.action-btn:hover { background: #0056b3; }
-
-/* =========================================
-   INPUT AREA
-   ========================================= */
-.input-area {
-    padding: 20px;
-    display: flex;
-    gap: 10px;
-    border-top: 1px solid var(--border-color);
-}
-
-#question {
-    flex: 1;
-    padding: 12px 15px;
-    border: 1px solid var(--border-color);
-    border-radius: 25px;
-    outline: none;
-}
-
-#question:focus { border-color: var(--primary-color); }
-
-#sendBtn {
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-
-#sendBtn:hover { transform: scale(1.05); }/* =========================================
-   CORE STYLES
-   ========================================= */
-:root {
-    --primary-color: #007bff;
-    --bg-color: #f8f9fa;
-    --sidebar-bg: #ffffff;
-    --border-color: #dee2e6;
-    --text-main: #333;
-    --text-muted: #6c757d;
-    --ai-bubble: #e9ecef;
-    --user-bubble: #007bff;
-}
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-body {
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    height: 100vh;
-    display: flex;
-}
-
-.app-container {
-    display: flex;
-    width: 100%;
-    height: 100%;
-}
-
-/* =========================================
-   SIDEBAR & UPLOAD ZONE
-   ========================================= */
-.sidebar {
-    width: 320px;
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--border-color);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-}
-
-.sidebar h2 {
-    font-size: 1.2rem;
-    margin-bottom: 20px;
-}
-
-.drop-zone {
-    border: 2px dashed var(--border-color);
-    border-radius: 12px;
-    padding: 30px 10px;
-    text-align: center;
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--primary-color);
-    background: #f0f7ff;
-}
-
-.drop-zone-content h3 {
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--line-soft);
+    font-weight: 600;
     font-size: 1rem;
-    color: var(--primary-color);
-}
-
-.upload-status {
-    margin-top: 15px;
-}
-
-.progress-bar-container {
-    width: 100%;
-    background: #eee;
-    height: 6px;
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.progress-bar {
-    width: 0%;
-    height: 100%;
-    background: var(--primary-color);
-    transition: width 0.4s ease;
-}
-
-.document-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    background: #fdfdfd;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    margin-bottom: 8px;
-    font-size: 0.9rem;
-}
-
-.delete-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    opacity: 0.6;
-}
-
-.delete-btn:hover { opacity: 1; }
-
-/* =========================================
-   MAIN CHAT AREA
-   ========================================= */
-.main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: white;
-}
-
-.chat-header {
-    padding: 15px 25px;
-    border-bottom: 1px solid var(--border-color);
-    font-weight: bold;
-    font-size: 1.1rem;
+    color: var(--text-main);
+    background: var(--paper-raised);
 }
 
 .chat-container {
     flex: 1;
-    padding: 20px;
+    padding: 28px 32px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 18px;
+    max-width: 880px;
+    width: 100%;
+    margin: 0 auto;
 }
 
 .message {
-    max-width: 80%;
-    padding: 12px 18px;
-    border-radius: 18px;
-    line-height: 1.5;
+    max-width: 100%;
+    line-height: 1.6;
     font-size: 0.95rem;
 }
 
+/* System welcome message */
+.message.system {
+    align-self: center;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    padding: 10px 0;
+    max-width: 60ch;
+}
+
+/* User message: the one place we use a solid fill */
 .message.user {
     align-self: flex-end;
-    background: var(--user-bubble);
-    color: white;
-    border-bottom-right-radius: 4px;
+    background: var(--blueprint);
+    color: #fff;
+    padding: 11px 16px;
+    border-radius: var(--radius-md);
+    border-bottom-right-radius: 2px;
+    max-width: 72%;
 }
 
+/* AI / system entries: log-style, left rule + label, no bubble */
 .message.ai {
-    align-self: flex-start;
-    background: var(--ai-bubble);
+    align-self: stretch;
+    max-width: 100%;
+    border-left: 2px solid var(--line);
+    padding: 4px 0 4px 16px;
     color: var(--text-main);
-    border-bottom-left-radius: 4px;
 }
 
-.message.system-alert {
-    align-self: center;
-    max-width: 95%;
-    background: #fff;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+.message.ai.thinking {
+    color: var(--text-muted);
+    font-style: italic;
+    border-left-color: var(--line-soft);
+}
+
+.message.ai.error {
+    border-left-color: var(--flag-conflict);
+    color: var(--flag-conflict);
+}
+
+.message .sources {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    margin-top: 10px;
+}
+
+.message.ai.system-alert {
+    align-self: stretch;
+    background: var(--paper);
+    border: 1px solid var(--line-soft);
+    border-left: 3px solid var(--blueprint);
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+    max-width: 100%;
+}
+
+.message.ai.system-alert h3 {
+    font-size: 0.98rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.message.ai.system-alert p {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
 }
 
 /* =========================================
-   REQUIREMENT MATRIX TABLE
+   CONFLICT / REQUIREMENT TABLE
    ========================================= */
 .table-wrapper {
-    margin-top: 15px;
-    border-radius: 8px;
+    margin-top: 14px;
+    border-radius: var(--radius-md);
     overflow: hidden;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--line-soft);
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    background: white;
+    background: var(--paper-raised);
 }
 
 th, td {
-    padding: 12px;
+    padding: 10px 14px;
     text-align: left;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 0.86rem;
+}
+
+td {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
 }
 
 thead {
-    background-color: #f1f3f5;
-    font-weight: bold;
+    background-color: var(--paper);
+}
+
+thead th {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.78rem;
 }
 
 tr:last-child td { border-bottom: none; }
 
 .action-btn {
-    padding: 8px 16px;
-    background: var(--primary-color);
-    color: white;
+    margin-top: 14px;
+    padding: 9px 18px;
+    background: var(--ink);
+    color: var(--text-on-ink);
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-weight: 500;
-    transition: background 0.2s;
+    font-size: 0.86rem;
+    transition: background 0.15s ease;
 }
 
-.action-btn:hover { background: #0056b3; }
+.action-btn:hover { background: var(--ink-soft); }
 
 /* =========================================
    INPUT AREA
    ========================================= */
 .input-area {
-    padding: 20px;
+    padding: 18px 32px 26px;
     display: flex;
     gap: 10px;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--line-soft);
+    background: var(--paper-raised);
+    max-width: 880px;
+    width: 100%;
+    margin: 0 auto;
 }
 
 #question {
     flex: 1;
-    padding: 12px 15px;
-    border: 1px solid var(--border-color);
-    border-radius: 25px;
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
     outline: none;
+    background: #fff;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.92rem;
+    color: var(--text-main);
+    transition: border-color 0.15s ease;
 }
 
-#question:focus { border-color: var(--primary-color); }
+#question::placeholder { color: var(--text-muted); }
+
+#question:focus { border-color: var(--blueprint); }
 
 #sendBtn {
-    background: var(--primary-color);
+    background: var(--blueprint);
     color: white;
     border: none;
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: background 0.15s ease;
 }
 
-#sendBtn:hover { transform: scale(1.05); }
+#sendBtn:hover { background: var(--blueprint-deep); }
+
+/* =========================================
+   RESPONSIVE
+   ========================================= */
+@media (max-width: 860px) {
+    .app-container {
+        flex-direction: column;
+    }
+    .sidebar {
+        width: 100%;
+        max-height: 40vh;
+    }
+    .chat-container, .input-area {
+        max-width: 100%;
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+}
