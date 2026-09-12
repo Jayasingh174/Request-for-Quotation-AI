@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 from app.brain.conflict_engine import detect_conflicts
-from app.pipeline.rfq_pipeline import process_rfq
+from app.brain.document_service import process_rfq
 from app.utils.fuzzy_match import get_fuzzy_val
 
 logger = logging.getLogger(__name__)
