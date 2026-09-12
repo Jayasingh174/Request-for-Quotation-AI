@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import List
+from typing import List, Dict, Any, Optional
 
 # Extraction services
 from app.services.pdf_service import extract_pdf
@@ -8,14 +8,19 @@ from app.services.docx_service import extract_docx
 from app.services.csv_service import extract_csv
 from app.services.excel_service import extract_boq_data
 from app.services.text_service import extract_text
-from app.services.cad_service import extract_dwg, parse_dxf, summarize_dxf  # 🔧 FIX: added parse_dxf
+from app.services.cad_service import extract_dwg, parse_dxf, summarize_dxf
 
 # AI pipeline services
 from app.brain.chunk_service import chunk_text
 from app.brain.embedding_service import embed_texts
+from app.brain.vector_service import vector_store
+from app.utils.fuzzy_match import get_fuzzy_val
 
-# Import the unified VectorService instance
-from app.brain.vector_service import vector_store 
+# Structured extraction (moved here from rfq_pipeline.py — all service/extraction
+# logic now lives in this one file, not split across pipeline/)
+from app.extraction.bom_extractor import extract_bom
+from app.extraction.spec_extractor import extract_specs
+from app.extraction.table_extractor import extract_tables
 
 from app.config import DWG_TEMP_DIR
 
@@ -27,21 +32,13 @@ SUPPORTED_EXTENSIONS = {
     ".pdf", ".docx", ".csv", ".xlsx", ".xls", ".txt", ".dwg", ".dxf"
 }
 
-# --- HELPER: FUZZY DICTIONARY MATCHER ---
-def get_fuzzy_val(row_dict: dict, possible_keys: list) -> str:
-    """Checks a dictionary for multiple possible column names (case-insensitive)"""
-    if not isinstance(row_dict, dict):
-        return ""
 
-    lower_row = {str(k).lower().strip(): v for k, v in row_dict.items() if k}
-
-    for key in possible_keys:
-        if key.lower() in lower_row and lower_row[key.lower()] is not None:
-            return str(lower_row[key.lower()]).strip()
-    return ""
-# ----------------------------------------
-
-async def process_document(file_path: str) -> str:
+async def process_document(file_path: str) -> Dict[str, Any]:
+    """
+    Extracts, chunks, embeds, and stores a document. Returns everything
+    downstream code needs (text, raw BOQ rows, raw CAD entities) so nothing
+    else has to call the services layer a second time.
+    """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -56,10 +53,11 @@ async def process_document(file_path: str) -> str:
     try:
         chunks: List[str] = []
         clean_text = ""
+        boq_data: Optional[list] = None
+        cad_data: Optional[dict] = None
+        cad_summary: Optional[str] = None
 
-        # ==================================================
         # 1️⃣ EXCEL (BOQ Handling)
-        # ==================================================
         if ext in [".xlsx", ".xls"]:
             boq_data = extract_boq_data(file_path)
 
@@ -78,15 +76,12 @@ async def process_document(file_path: str) -> str:
                 if not desc and not qty:
                     continue
 
-                text_chunk = f"Item {item}: {desc} | Qty: {qty} {unit}"
-                chunks.append(text_chunk)
+                chunks.append(f"Item {item}: {desc} | Qty: {qty} {unit}")
 
             clean_text = "\n".join(chunks)
             logger.info(f"📊 Excel processed → {len(chunks)} BOQ chunks")
 
-        # ==================================================
         # 2️⃣ OTHER FILE TYPES
-        # ==================================================
         else:
             if ext == ".pdf":
                 raw = extract_pdf(file_path)
@@ -98,11 +93,12 @@ async def process_document(file_path: str) -> str:
                 raw = extract_text(file_path)
             elif ext == ".dwg":
                 raw = extract_dwg(file_path, DWG_TEMP_DIR)
+                cad_data = raw.get("parsed_entities") if isinstance(raw, dict) else None
+                cad_summary = raw.get("summary") if isinstance(raw, dict) else None
             elif ext == ".dxf":
-                # 🔧 FIX: summarize_dxf() takes one dict arg (from parse_dxf),
-                # not (file_path, output_dir). Parse first, then summarize.
-                parsed_data = parse_dxf(file_path)
-                raw = {"summary": summarize_dxf(parsed_data), "text_chunks": []}
+                cad_data = parse_dxf(file_path)
+                cad_summary = summarize_dxf(cad_data)
+                raw = {"summary": cad_summary, "text_chunks": []}
             else:
                 raw = ""
 
@@ -126,17 +122,13 @@ async def process_document(file_path: str) -> str:
         if not chunks:
             raise ValueError("No valid chunks generated")
 
-        # ==================================================
         # 3️⃣ EMBEDDINGS
-        # ==================================================
         embeddings = await embed_texts(chunks)
 
         if embeddings is None or len(embeddings) == 0:
             raise ValueError("Embedding generation failed")
 
-        # ==================================================
         # 4️⃣ STORE VECTORS
-        # ==================================================
         filename = os.path.basename(file_path)
 
         vector_store.add_documents(
@@ -146,8 +138,52 @@ async def process_document(file_path: str) -> str:
         )
 
         logger.info(f"✅ Document indexed successfully: {filename}")
-        return clean_text
+
+        return {
+            "text": clean_text,
+            "boq_data": boq_data,
+            "cad_data": cad_data,
+            "cad_summary": cad_summary,
+        }
 
     except Exception as e:
         logger.error(f"❌ Document processing failed: {file_path} | {e}", exc_info=True)
         raise RuntimeError(f"Document processing failed: {e}") from e
+
+
+async def process_rfq(file_path: str) -> Dict[str, Any]:
+    """
+    Orchestrates structured extraction (BOM/specs/tables) on top of
+    process_document()'s output. No separate pipeline file needed for this.
+    """
+    try:
+        doc_result = await process_document(file_path)
+        text = doc_result.get("text")
+
+        if not text:
+            raise ValueError("No text extracted from document")
+
+        bom = extract_bom(text)
+        specs = extract_specs(text)
+        tables = extract_tables(text)
+
+        filename = os.path.basename(file_path)
+
+        return {
+            "status": "success",
+            "source_file": filename,
+            "bom": bom,
+            "specifications": specs,
+            "tables": tables,
+            "boq_data": doc_result.get("boq_data"),
+            "cad_entities": doc_result.get("cad_data"),
+            "cad_summary": doc_result.get("cad_summary"),
+            "message": "Vectors successfully processed and stored by document_service."
+        }
+
+    except Exception as e:
+        logger.error(f"❌ RFQ processing failed: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
