@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 from app.brain.conflict_engine import detect_conflicts
-from app.brain.document_service import process_rfq
+from app.pipeline.rfq_pipeline import process_rfq  # 🔧 FIX: document_service.py deleted, process_rfq lives here now
 from app.utils.fuzzy_match import get_fuzzy_val
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ async def process_rfq_bundle(project_name: str, file_paths: List[str]) -> Dict[s
             }
 
             if ext in EXCEL_EXTS:
-                # 🔧 reused from document_service via process_rfq — no second parse
+                # boq_data comes straight from process_rfq() — no second Excel parse
                 boq_data = result.get("boq_data") or []
 
                 for row in boq_data:
